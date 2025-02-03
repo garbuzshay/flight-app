@@ -2,7 +2,7 @@
   "name": "flights-app",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://garbuzshay.github.io/flight-app",
+ 
   "dependencies": {
     "axios": "^1.7.9",
     "cra-template": "1.2.0",
