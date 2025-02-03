@@ -1,8 +1,8 @@
 {
   "name": "flights-app",
   "version": "0.1.0",
-
   "private": true,
+  "homepage": "https://garbuzshay.github.io/flight-app",
   "dependencies": {
     "axios": "^1.7.9",
     "cra-template": "1.2.0",
@@ -17,6 +17,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test-apis": "node testApis.mjs",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -39,6 +41,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
+    "gh-pages": "^5.0.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.3.3"
   }
