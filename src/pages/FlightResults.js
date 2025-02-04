@@ -1,56 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+// C:\Users\Shay\Desktop\flights-app\flights-app\src\pages\FlightResults.js
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
-const LOAD_COUNT = 5; // Number of flights to show initially and to load on each click
+const LOAD_COUNT = 5; // Number of flights to show initially and each time 'Load More' is clicked
 
 function FlightResults() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Base results after filtering by search parameters (origin, destination, date)
+  // Base results after filtering by the user’s search parameters.
   const [baseItineraries, setBaseItineraries] = useState([]);
-  // Additional filters: company, price range, and stop count
+  // Additional filters
   const [companyFilter, setCompanyFilter] = useState("");
-  const [stopCountFilter, setStopCountFilter] = useState(""); // "", "0", "1", "2", "3+"
-  
-  // For price filters, use temporary states so user can confirm
+  const [stopCountFilter, setStopCountFilter] = useState("");
   const [tempPriceMin, setTempPriceMin] = useState("");
   const [tempPriceMax, setTempPriceMax] = useState("");
-  // Committed price filters that actually trigger filtering
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
 
-  // Final filtered results after applying additional filters
+  // Final filtered results
   const [finalItineraries, setFinalItineraries] = useState([]);
-  // For load more functionality
-  const [visibleCount, setVisibleCount] = useState(LOAD_COUNT);
-  
+
+  // Batching logic
+  const [extraBatches, setExtraBatches] = useState(0);
+  const visibleCount = LOAD_COUNT + extraBatches * LOAD_COUNT;
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load initial results filtered by the user’s search parameters.
+  // We’ll store the sessionId from search results
+  const [sessionId, setSessionId] = useState(null);
+
+  // Load initial results from router state or localStorage
   useEffect(() => {
     const loadResults = async () => {
       setIsLoading(true);
       setError(null);
       try {
         let response;
-        // Retrieve results from router state if available; otherwise, fallback to localStorage.
+        // Retrieve results
         if (location.state?.searchResults) {
           response = location.state.searchResults;
         } else {
-          const stored = localStorage.getItem('searchResults');
+          const stored = localStorage.getItem("searchResults");
           if (stored) {
             response = JSON.parse(stored);
           } else {
-            throw new Error('No search results found');
+            throw new Error("No search results found");
           }
         }
 
-        // Get search parameters (origin, destination, date) from FlightSearch.js.
+        // Grab sessionId from the search results
+        const foundSessionId = response?.data?.context?.sessionId;
+        if (foundSessionId) setSessionId(foundSessionId);
+
+        // Grab original search params
         const { origin, destination, date } = location.state?.searchParams || {};
 
-        // Filter the itineraries based on origin, destination, and date.
+        // Filter the itineraries
         const filtered = response.data.itineraries.filter((itinerary) => {
           const leg = itinerary.legs[0];
           const matchesOrigin = origin
@@ -61,7 +68,9 @@ function FlightResults() {
             : true;
           let matchesDate = true;
           if (date) {
-            const flightDate = new Date(leg.departure).toISOString().split('T')[0];
+            const flightDate = new Date(leg.departure)
+              .toISOString()
+              .split("T")[0];
             matchesDate = flightDate === date;
           }
           return matchesOrigin && matchesDestination && matchesDate;
@@ -69,9 +78,9 @@ function FlightResults() {
 
         setBaseItineraries(filtered);
       } catch (err) {
-        console.error('Error loading flight results:', err);
-        setError('Unable to load flight results. Please try searching again.');
-        localStorage.removeItem('searchResults');
+        console.error("Error loading flight results:", err);
+        setError("Unable to load flight results. Please try searching again.");
+        localStorage.removeItem("searchResults");
       } finally {
         setIsLoading(false);
       }
@@ -80,7 +89,7 @@ function FlightResults() {
     loadResults();
   }, [location.state]);
 
-  // Apply additional filters (company, price, and stop count) on top of the base results.
+  // Apply additional filters
   useEffect(() => {
     const applyAdditionalFilters = () => {
       let filtered = [...baseItineraries];
@@ -88,7 +97,7 @@ function FlightResults() {
       filtered = filtered.filter((itinerary) => {
         const leg = itinerary.legs[0];
 
-        // Filter by company if selected.
+        // Filter by company
         if (companyFilter) {
           if (
             leg.carriers.marketing[0].name.toLowerCase() !==
@@ -98,23 +107,16 @@ function FlightResults() {
           }
         }
 
-        // Filter by price: extract a numeric value from the flight's price.
-        // This example assumes a formatted string like "$123" or "USD 123".
+        // Filter by price
         const priceNum = parseFloat(
           itinerary.price && itinerary.price.formatted
-            ? itinerary.price.formatted.replace(/[^0-9.]/g, '')
+            ? itinerary.price.formatted.replace(/[^0-9.]/g, "")
             : "0"
         );
         if (priceMin !== "" && priceNum < parseFloat(priceMin)) return false;
         if (priceMax !== "" && priceNum > parseFloat(priceMax)) return false;
 
-        // Filter by stop count.
-        // stopCountFilter is:
-        // - "" for all stops
-        // - "0" for Direct flights,
-        // - "1" for 1 Stop,
-        // - "2" for 2 Stops,
-        // - "3+" for 3 or more stops.
+        // Filter by stop count
         if (stopCountFilter) {
           if (stopCountFilter === "3+") {
             if (leg.stopCount < 3) return false;
@@ -126,14 +128,12 @@ function FlightResults() {
         return true;
       });
       setFinalItineraries(filtered);
-      // Reset visible count whenever filters change.
-      setVisibleCount(LOAD_COUNT);
+      setExtraBatches(0);
     };
 
     applyAdditionalFilters();
   }, [baseItineraries, companyFilter, priceMin, priceMax, stopCountFilter]);
 
-  // Helper functions for formatting.
   const formatDuration = (minutes) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -142,16 +142,16 @@ function FlightResults() {
 
   const formatDateTime = (dateTimeStr) => {
     const date = new Date(dateTimeStr);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: true,
-      month: 'short',
-      day: 'numeric'
+      month: "short",
+      day: "numeric",
     });
   };
 
-  // Render a loading spinner while data is loading.
+  // Loading
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto p-4">
@@ -174,7 +174,10 @@ function FlightResults() {
             <path
               className="opacity-75"
               fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 
+              5.373 0 12h4zm2 5.291A7.962 7.962 0 014 
+              12H0c0 3.042 1.135 5.824 3 
+              7.938l3-2.647z"
             ></path>
           </svg>
         </div>
@@ -182,7 +185,7 @@ function FlightResults() {
     );
   }
 
-  // If there's an error, display it.
+  // Error
   if (error) {
     return (
       <div className="max-w-7xl mx-auto p-4">
@@ -190,7 +193,7 @@ function FlightResults() {
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p>{error}</p>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             className="mt-2 text-blue-600 hover:text-blue-800"
           >
             Return to Search
@@ -200,14 +203,14 @@ function FlightResults() {
     );
   }
 
-  // If no flights were loaded at all (base results are empty), show a full-page message.
+  // No flights
   if (baseItineraries.length === 0) {
     return (
       <div className="max-w-7xl mx-auto p-4">
         <h2 className="text-2xl font-semibold mb-4">Flight Search Results</h2>
         <p>No flights found for your search criteria.</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate("/")}
           className="mt-2 text-blue-600 hover:text-blue-800"
         >
           Try Another Search
@@ -216,12 +219,11 @@ function FlightResults() {
     );
   }
 
-  // Render the filters and results.
   return (
     <div className="max-w-7xl min-h-screen mx-auto p-4">
       {/* Back Button */}
       <button
-        onClick={() => navigate('/flights')}
+        onClick={() => navigate("/flights")}
         className="mb-4 text-blue-600 hover:text-blue-800"
       >
         &larr; Back to Flight Search
@@ -232,11 +234,10 @@ function FlightResults() {
         Found {baseItineraries.length} flights for your criteria
       </p>
 
-      {/* Additional Filters */}
+      {/* Filters */}
       <div className="mb-6 p-4 border rounded bg-gray-50">
         <h3 className="text-lg font-medium mb-2">Additional Filters</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* First Row: Company & Stops */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium">Company</label>
             <select
@@ -273,7 +274,7 @@ function FlightResults() {
               <option value="3+">3+ Stops</option>
             </select>
           </div>
-          {/* Second Row: Price Filter spanning full width */}
+
           <div className="flex flex-col gap-2 md:col-span-2">
             <label className="text-sm font-medium">Price Range</label>
             <div className="flex gap-2">
@@ -305,7 +306,7 @@ function FlightResults() {
         </div>
       </div>
 
-      {/* Results or "No flights match your filters" message */}
+      {/* Render results */}
       <div className="min-h-[300px]">
         {finalItineraries.length === 0 ? (
           <div className="border p-4 rounded-lg bg-white">
@@ -330,6 +331,14 @@ function FlightResults() {
           <div className="grid grid-cols-1 gap-4">
             {finalItineraries.slice(0, visibleCount).map((flight) => {
               const leg = flight.legs[0];
+
+              // Format the legs as required: { origin, destination, date }
+              const formattedLegs = flight.legs.map((lg) => ({
+                origin: lg.origin.displayCode,        // "LAX", "LOND", etc.
+                destination: lg.destination.displayCode,
+                date: lg.departure.split("T")[0],     // "YYYY-MM-DD"
+              }));
+
               return (
                 <div
                   key={flight.id}
@@ -366,8 +375,10 @@ function FlightResults() {
                           <div className="border-t border-gray-300 my-2"></div>
                           <p className="text-sm text-gray-600">
                             {leg.stopCount === 0
-                              ? 'Direct'
-                              : `${leg.stopCount} stop${leg.stopCount > 1 ? 's' : ''}`}
+                              ? "Direct"
+                              : `${leg.stopCount} stop${
+                                  leg.stopCount > 1 ? "s" : ""
+                                }`}
                           </p>
                         </div>
 
@@ -387,9 +398,16 @@ function FlightResults() {
                       <p className="text-2xl font-bold text-blue-600">
                         {flight.price.formatted}
                       </p>
+
+                      {/* Pass itineraryId, legs, and sessionId via state */}
                       <Link
                         to={`/details/${flight.id}`}
-                        state={{ flightDetails: flight }}
+                        state={{
+                          itineraryId: flight.id,
+                          legs: formattedLegs,
+                          sessionId: sessionId,
+                          price: flight.price,
+                        }}
                         className="inline-block mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors whitespace-nowrap"
                       >
                         Select
@@ -403,15 +421,25 @@ function FlightResults() {
         )}
       </div>
 
-      {/* Load More Button */}
-      {finalItineraries.length > visibleCount && (
-        <div className="mt-6 md:mr-20 text-center">
-          <button
-            onClick={() => setVisibleCount(visibleCount + LOAD_COUNT)}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Load More
-          </button>
+      {/* Load More / Show Less */}
+      {(finalItineraries.length > visibleCount || extraBatches > 0) && (
+        <div className="mt-6 flex justify-center gap-4">
+          {finalItineraries.length > visibleCount && (
+            <button
+              onClick={() => setExtraBatches(extraBatches + 1)}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+            >
+              Load More
+            </button>
+          )}
+          {extraBatches > 0 && (
+            <button
+              onClick={() => setExtraBatches(extraBatches - 1)}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Show Less
+            </button>
+          )}
         </div>
       )}
     </div>

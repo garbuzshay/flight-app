@@ -1,8 +1,10 @@
 import axios from "axios";
 
-const RAPIDAPI_KEY = "ad5348c7d3mshb6e9370e8e1586fp126542jsnbe9150a269af";
-const RAPIDAPI_HOST = "sky-scrapper.p.rapidapi.com";
+// const RAPIDAPI_KEY = "ad5348c7d3mshb6e9370e8e1586fp126542jsnbe9150a269af";
+// const RAPIDAPI_HOST = "sky-scrapper.p.rapidapi.com";
 
+const RAPIDAPI_KEY = '0b92a659c0mshcb21b579996d88ep1e38bbjsn3e005347a349';
+const RAPIDAPI_HOST = 'sky-scrapper.p.rapidapi.com';
 const HEADERS = {
   "x-rapidapi-key": RAPIDAPI_KEY,
   "x-rapidapi-host": RAPIDAPI_HOST,
